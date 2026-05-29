@@ -26,7 +26,7 @@ module "rancher" {
 ## Notes
 
 - Rancher is exposed on HTTP `80` and HTTPS `443`.
-- SSH is closed unless you set `allowed_ssh_cidrs`.
+- SSH port `22` is open from anywhere by default with `allowed_ssh_cidrs = ["0.0.0.0/0"]`.
 - The default EC2 size is `t2.medium`.
 - The default EC2 key pair name is `rancher0529`; the key pair must already exist in AWS.
 - The default AMI is the latest Ubuntu 22.04 LTS amd64 image in the selected AWS region.

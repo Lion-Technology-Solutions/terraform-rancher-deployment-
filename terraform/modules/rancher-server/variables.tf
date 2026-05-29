@@ -77,9 +77,9 @@ variable "allowed_rancher_cidrs" {
 }
 
 variable "allowed_ssh_cidrs" {
-  description = "CIDR ranges allowed to SSH to the instance. Leave empty to keep SSH closed."
+  description = "CIDR ranges allowed to SSH to the instance on port 22."
   type        = list(string)
-  default     = []
+  default     = ["0.0.0.0/0"]
 }
 
 variable "http_port" {
