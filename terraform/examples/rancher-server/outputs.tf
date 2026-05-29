@@ -27,3 +27,8 @@ output "rancher_https_url" {
   description = "HTTPS URL for the Rancher UI."
   value       = module.rancher.rancher_https_url
 }
+
+output "ansible_inventory_host" {
+  description = "Inventory host line for the Rancher Ansible playbook."
+  value       = module.rancher.ansible_inventory_host
+}

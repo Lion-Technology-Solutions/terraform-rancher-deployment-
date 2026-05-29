@@ -172,13 +172,6 @@ resource "aws_instance" "this" {
   associate_public_ip_address = var.associate_public_ip_address
   key_name                    = var.key_name
   iam_instance_profile        = var.iam_instance_profile
-  user_data_replace_on_change = true
-
-  user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
-    http_port     = var.http_port
-    https_port    = var.https_port
-    rancher_image = var.rancher_image
-  })
 
   metadata_options {
     http_endpoint = "enabled"

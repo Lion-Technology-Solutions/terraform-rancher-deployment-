@@ -1,0 +1,125 @@
+---
+- name: Install Docker and deploy Rancher
+  hosts: rancher
+  become: true
+  gather_facts: true
+
+  vars:
+    docker_keyring_dir: /etc/apt/keyrings
+    docker_keyring_file: /etc/apt/keyrings/docker.gpg
+    docker_apt_source: /etc/apt/sources.list.d/docker.list
+    rancher_container_name: rancher
+    rancher_image: rancher/rancher:latest
+    rancher_http_port: 80
+    rancher_https_port: 443
+    recreate_rancher: false
+
+  pre_tasks:
+    - name: Wait for SSH to become available
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+
+    - name: Install Docker repository prerequisites
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+  tasks:
+    - name: Create APT keyring directory
+      ansible.builtin.file:
+        path: "{{ docker_keyring_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /tmp/docker.asc
+        mode: "0644"
+      register: docker_gpg_key
+
+    - name: Check Docker GPG keyring
+      ansible.builtin.stat:
+        path: "{{ docker_keyring_file }}"
+      register: docker_keyring
+
+    - name: Install Docker GPG key
+      ansible.builtin.command:
+        cmd: "gpg --dearmor --yes -o {{ docker_keyring_file }} /tmp/docker.asc"
+      when: docker_gpg_key.changed or not docker_keyring.stat.exists
+
+    - name: Set Docker GPG key permissions
+      ansible.builtin.file:
+        path: "{{ docker_keyring_file }}"
+        mode: "0644"
+
+    - name: Get system architecture
+      ansible.builtin.command:
+        cmd: dpkg --print-architecture
+      register: docker_arch
+      changed_when: false
+
+    - name: Configure Docker APT repository
+      ansible.builtin.copy:
+        dest: "{{ docker_apt_source }}"
+        mode: "0644"
+        content: |
+          deb [arch={{ docker_arch.stdout }} signed-by={{ docker_keyring_file }}] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+      register: docker_repo
+
+    - name: Update APT cache for Docker repository
+      ansible.builtin.apt:
+        update_cache: true
+      when: docker_gpg_key.changed or docker_repo.changed or not docker_keyring.stat.exists
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Enable and start Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Check if Rancher container exists
+      ansible.builtin.command:
+        cmd: "docker inspect {{ rancher_container_name }}"
+      register: rancher_container
+      failed_when: false
+      changed_when: false
+
+    - name: Remove existing Rancher container when requested
+      ansible.builtin.command:
+        cmd: "docker rm -f {{ rancher_container_name }}"
+      when: rancher_container.rc == 0 and recreate_rancher | bool
+
+    - name: Pull Rancher image
+      ansible.builtin.command:
+        cmd: "docker pull {{ rancher_image }}"
+      register: rancher_pull
+      changed_when: "'Downloaded newer image' in rancher_pull.stdout"
+
+    - name: Deploy Rancher container
+      ansible.builtin.command:
+        cmd: >
+          docker run --privileged -d
+          --name {{ rancher_container_name }}
+          --restart=unless-stopped
+          -p {{ rancher_http_port }}:80
+          -p {{ rancher_https_port }}:443
+          {{ rancher_image }}
+      when: rancher_container.rc != 0 or recreate_rancher | bool

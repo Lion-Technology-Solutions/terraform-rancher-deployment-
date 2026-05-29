@@ -52,3 +52,8 @@ output "rancher_https_url" {
   description = "HTTPS URL for the Rancher UI."
   value       = aws_instance.this.public_dns != "" ? "https://${aws_instance.this.public_dns}" : "https://${aws_instance.this.public_ip}"
 }
+
+output "ansible_inventory_host" {
+  description = "Inventory host line for the Rancher Ansible playbook."
+  value       = "liontech-rancher ansible_host=${aws_instance.this.public_ip} ansible_user=ubuntu"
+}

@@ -115,12 +115,6 @@ variable "ssh_port" {
   }
 }
 
-variable "rancher_image" {
-  description = "Rancher Docker image to deploy."
-  type        = string
-  default     = "rancher/rancher:latest"
-}
-
 variable "root_volume_size" {
   description = "Root EBS volume size in GiB."
   type        = number
