@@ -1,8 +1,4 @@
 aws_region = "us-east-1"
 
-vpc_id    = "vpc-xxxxxxxx"
-subnet_id = "subnet-xxxxxxxx"
-key_name  = "my-keypair"
-
 allowed_rancher_cidrs = ["0.0.0.0/0"]
 allowed_ssh_cidrs     = ["203.0.113.10/32"]

@@ -29,57 +29,145 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+locals {
+  common_tags = merge({
+    Project   = "liontech"
+    ManagedBy = "terraform"
+  }, var.tags)
+
+  vpc_id           = var.create_vpc ? aws_vpc.this[0].id : var.vpc_id
+  public_subnet_id = var.create_vpc ? aws_subnet.public[0].id : var.subnet_id
+}
+
+resource "aws_vpc" "this" {
+  count = var.create_vpc ? 1 : 0
+
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = merge(local.common_tags, {
+    Name = var.vpc_name
+  })
+}
+
+resource "aws_internet_gateway" "this" {
+  count = var.create_vpc ? 1 : 0
+
+  vpc_id = aws_vpc.this[0].id
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-igw"
+  })
+}
+
+resource "aws_subnet" "public" {
+  count = var.create_vpc ? 1 : 0
+
+  vpc_id                  = aws_vpc.this[0].id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zone
+  map_public_ip_on_launch = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-public-subnet"
+    Tier = "public"
+  })
+}
+
+resource "aws_route_table" "public" {
+  count = var.create_vpc ? 1 : 0
+
+  vpc_id = aws_vpc.this[0].id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.this[0].id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-public-rt"
+  })
+}
+
+resource "aws_route_table_association" "public" {
+  count = var.create_vpc ? 1 : 0
+
+  subnet_id      = aws_subnet.public[0].id
+  route_table_id = aws_route_table.public[0].id
+}
+
 resource "aws_security_group" "this" {
-  name_prefix            = "${var.name_prefix}-"
-  description            = "Security group for Rancher single-node server"
-  vpc_id                 = var.vpc_id
+  name                   = "${var.name_prefix}-sg"
+  description            = "LionTech Rancher security group"
+  vpc_id                 = local.vpc_id
   revoke_rules_on_delete = true
 
-  ingress {
-    description = "Rancher HTTP"
-    from_port   = var.http_port
-    to_port     = var.http_port
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_rancher_cidrs
-  }
-
-  ingress {
-    description = "Rancher HTTPS"
-    from_port   = var.https_port
-    to_port     = var.https_port
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_rancher_cidrs
-  }
-
-  dynamic "ingress" {
-    for_each = length(var.allowed_ssh_cidrs) > 0 ? [1] : []
-
-    content {
-      description = "SSH"
-      from_port   = var.ssh_port
-      to_port     = var.ssh_port
-      protocol    = "tcp"
-      cidr_blocks = var.allowed_ssh_cidrs
-    }
-  }
-
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.tags, {
+  tags = merge(local.common_tags, {
     Name = "${var.name_prefix}-sg"
+  })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rancher_http" {
+  for_each = toset(var.allowed_rancher_cidrs)
+
+  security_group_id = aws_security_group.this.id
+  description       = "LionTech Rancher HTTP"
+  cidr_ipv4         = each.value
+  from_port         = var.http_port
+  ip_protocol       = "tcp"
+  to_port           = var.http_port
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-http"
+  })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rancher_https" {
+  for_each = toset(var.allowed_rancher_cidrs)
+
+  security_group_id = aws_security_group.this.id
+  description       = "LionTech Rancher HTTPS"
+  cidr_ipv4         = each.value
+  from_port         = var.https_port
+  ip_protocol       = "tcp"
+  to_port           = var.https_port
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-https"
+  })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  for_each = toset(var.allowed_ssh_cidrs)
+
+  security_group_id = aws_security_group.this.id
+  description       = "LionTech SSH"
+  cidr_ipv4         = each.value
+  from_port         = var.ssh_port
+  ip_protocol       = "tcp"
+  to_port           = var.ssh_port
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-ssh"
+  })
+}
+
+resource "aws_vpc_security_group_egress_rule" "internet" {
+  security_group_id = aws_security_group.this.id
+  description       = "LionTech outbound internet access"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-egress"
   })
 }
 
 resource "aws_instance" "this" {
   ami                         = coalesce(var.ami_id, data.aws_ami.ubuntu.id)
   instance_type               = var.instance_type
-  subnet_id                   = var.subnet_id
+  subnet_id                   = local.public_subnet_id
   vpc_security_group_ids      = concat([aws_security_group.this.id], var.additional_security_group_ids)
   associate_public_ip_address = var.associate_public_ip_address
   key_name                    = var.key_name
@@ -104,7 +192,9 @@ resource "aws_instance" "this" {
     encrypted             = var.encrypt_root_volume
   }
 
-  tags = merge(var.tags, {
+  tags = merge(local.common_tags, {
     Name = var.name_prefix
   })
+
+  depends_on = [aws_route_table_association.public]
 }

@@ -16,16 +16,15 @@ provider "aws" {
 module "rancher" {
   source = "../../modules/rancher-server"
 
-  name_prefix = var.name_prefix
-  vpc_id      = var.vpc_id
-  subnet_id   = var.subnet_id
-  key_name    = var.key_name
+  name_prefix = "liontech-rancher"
+  vpc_name    = "liontech-rancher-vpc"
+  key_name    = "rancher0529"
 
   allowed_rancher_cidrs = var.allowed_rancher_cidrs
   allowed_ssh_cidrs     = var.allowed_ssh_cidrs
 
   tags = {
-    Project   = "rancher"
+    Project   = "liontech"
     ManagedBy = "terraform"
   }
 }

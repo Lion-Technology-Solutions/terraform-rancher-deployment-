@@ -1,17 +1,49 @@
 variable "name_prefix" {
-  description = "Name prefix used for the EC2 instance and security group."
+  description = "Name prefix used for Rancher resources."
   type        = string
-  default     = "rancher"
+  default     = "liontech-rancher"
+}
+
+variable "create_vpc" {
+  description = "Whether to create a dedicated Rancher VPC, public subnet, internet gateway, and public route table."
+  type        = bool
+  default     = true
+}
+
+variable "vpc_name" {
+  description = "Name tag for the Rancher VPC."
+  type        = string
+  default     = "liontech-rancher-vpc"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for the Rancher VPC created by this module."
+  type        = string
+  default     = "10.52.0.0/16"
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for the Rancher public subnet created by this module."
+  type        = string
+  default     = "10.52.1.0/24"
+}
+
+variable "availability_zone" {
+  description = "Optional availability zone for the public subnet. Leave null to let AWS choose one."
+  type        = string
+  default     = null
 }
 
 variable "vpc_id" {
-  description = "VPC ID where the Rancher security group will be created."
+  description = "Existing VPC ID to use when create_vpc is false."
   type        = string
+  default     = null
 }
 
 variable "subnet_id" {
-  description = "Subnet ID where the Rancher EC2 instance will be launched."
+  description = "Existing public subnet ID to use when create_vpc is false."
   type        = string
+  default     = null
 }
 
 variable "ami_id" {
@@ -27,9 +59,9 @@ variable "instance_type" {
 }
 
 variable "key_name" {
-  description = "Optional EC2 key pair name for SSH access."
+  description = "EC2 key pair name for SSH access. The key pair must already exist in AWS."
   type        = string
-  default     = null
+  default     = "rancher0529"
 }
 
 variable "associate_public_ip_address" {

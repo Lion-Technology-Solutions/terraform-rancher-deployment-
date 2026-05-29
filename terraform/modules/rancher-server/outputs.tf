@@ -1,3 +1,23 @@
+output "vpc_id" {
+  description = "ID of the Rancher VPC."
+  value       = local.vpc_id
+}
+
+output "public_subnet_id" {
+  description = "ID of the public subnet where Rancher is deployed."
+  value       = local.public_subnet_id
+}
+
+output "internet_gateway_id" {
+  description = "ID of the internet gateway created by this module."
+  value       = var.create_vpc ? aws_internet_gateway.this[0].id : null
+}
+
+output "public_route_table_id" {
+  description = "ID of the public route table created by this module."
+  value       = var.create_vpc ? aws_route_table.public[0].id : null
+}
+
 output "instance_id" {
   description = "ID of the Rancher EC2 instance."
   value       = aws_instance.this.id

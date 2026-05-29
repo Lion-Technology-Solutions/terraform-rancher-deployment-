@@ -1,3 +1,13 @@
+output "vpc_id" {
+  description = "ID of the Rancher VPC."
+  value       = module.rancher.vpc_id
+}
+
+output "public_subnet_id" {
+  description = "ID of the Rancher public subnet."
+  value       = module.rancher.public_subnet_id
+}
+
 output "instance_id" {
   description = "ID of the Rancher EC2 instance."
   value       = module.rancher.instance_id
